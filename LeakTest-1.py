@@ -1,5 +1,5 @@
 # Thomas Judge Jr
-#Installed and imported all libraries for fuzzylogic
+
 import numpy as ny
 import skfuzzy as  fl
 from skfuzzy import control as ctrl
@@ -13,22 +13,21 @@ pressure2 = ctrl.Antecedent(ny.arange(0, 11, 1), 'Pressure Along conduit positio
 pressure3 = ctrl.Antecedent(ny.arange(0, 11, 1), 'Pressure Along conduit position 3')
 pressure = ctrl.Consequent(ny.arange(0, 11, 1), 'Overall pressure reading')
 # these are the different relative humiditys that are gathered from the senosrs listed throughout the data pod 
-#overall pressure in room
-#pressureO= ctrl.Antecedent(ny.arange(0, 101 , 1), 'Overall Pressure')
+# overall pressure in room
+# pressureO= ctrl.Antecedent(ny.arange(0, 101 , 1), 'Overall Pressure')
 
 #Overall humidity in room 
 humidity1 = ctrl.Antecedent(ny.arange(0, 101, 1), 'Relative Humidity CRAH 1')
 # CRAH 1 had a location of being at the front right of the pod 
-#CRAH 2 is at the right side back corner of the pod 
+# CRAH 2 is at the right side back corner of the pod 
 humidity2= ctrl.Antecedent(ny.arange(0,101, 1) , 'Relative Humidity CRAH 6')
-#CRAH 3 is at the left front of the pod 
+# CRAH 3 is at the left front of the pod 
 humidity3 = ctrl.Antecedent(ny.arange(0,101,1) , 'Relative humidity CRAH 8')
-#CRAH 4 the humidity at CRAH 16 will be at the back left corner of the pod
-#humidity4= ctrl.Antecedent(ny.arange(0,101,1) , 'Relative Humidity Crah 16 ')
+
 # Overall Humidity rating 
 humidity= ctrl.Consequent(ny.arange(0,101,1) , 'Overall Humidity Reading')
 
-#temperature= ctrl.Antecedent(ny.arange(0,101,1), ' Overall Temperature in data Center ')
+# temperature= ctrl.Antecedent(ny.arange(0,101,1), ' Overall Temperature in data Center ')
 # temperature sensor 1 2 and 3 will be located on the floor while temperature sensors 3-6 will be located hanging from the ceilings.
 
 temperature1= ctrl.Antecedent(ny.arange(0,101,1), 'Temperature 1 in data Center ')
@@ -76,7 +75,6 @@ humidity1['humid'] =  fl.trimf(humidity1.universe, [40, 60, 80])
 humidity1['wet'] =  fl.trimf(humidity1.universe, [70, 90, 100])
  
 temperature['Freezing Temperature']= fl.trimf(temperature.universe,[0, 32,50])
-#temperature['Low Temperature']= fl.trimf(temperature.universe,[ 30, 47,55])
 temperature['Normal Temperature']= fl.trimf(temperature.universe,[40, 60, 82 ])
 temperature['High Temperature Range'] =fl.trimf(temperature.universe,[78, 90 ,100 ])
 temperature2['Cold']= fl.trimf(temperature2.universe,[0, 30, 56])
@@ -117,22 +115,56 @@ R15 = ctrl.Rule(temperature1['Hot'] | temperature2['Hot'] | temperature3['Hot'],
 # Leak Severity Rules
 R16 = ctrl.Rule(pressure['Normal Range'] & humidity['Dry'] & temperature['High Temperature Range'], leak_severity['Leak Detected'])
 R18 = ctrl.Rule(pressure['Room High Pressure'] & humidity['Room has High Humidity'] & temperature['Normal Temperature'], leak_severity['Please Investigate'])
+
 # Additional Rule for Leak Detection with Wet Humidity and Hot or Warm Temperature
-R19 = ctrl.Rule((humidity1['wet'] | humidity2['wet'] | humidity3['wet']) & (temperature1['Hot'] | temperature2['Hot'] | temperature3['Hot'] | temperature1['Cold'] | temperature2['Cold'] | temperature3['Cold']), leak_severity['Leak Detected'])
+R19 = ctrl.Rule(
+    (humidity1['wet'] | humidity2['wet'] | humidity3['wet']) &
+    ((temperature1['Hot'] | temperature2['Hot'] | temperature3['Hot']) |
+     (temperature1['Normal range'] | temperature2['Normal range'] | temperature3['Normal range'])),
+    leak_severity['Leak Detected'])
 
-R20 = ctrl.Rule(((temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range'])|(temperature1['Cold'] & temperature2['Normal range'] & temperature3['Normal range'])|(temperature1['Normal range'] & temperature2['Cold'] & temperature3['Normal range'])|(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Cold']))&
-                ((humidity1['Dry'] & humidity2['Dry'] & humidity3['Dry'])|(~humidity1['wet'] & ~humidity2['wet'] & ~humidity3['wet']))&(~pressure1['high']&~pressure2['high']&~pressure3['high']),
-                leak_severity['Normal Operation'],pressure['Normal Range'],humidity['Moderate Humidity'],temperature['Normal Temperature'])
 # Rule for Normal Operation based on specific input values
-R21 = ctrl.Rule(pressure1['low'] & pressure2['low'] & pressure3['low'] &  # Adjust pressure conditions as needed
-                humidity1['Dry'] & humidity2['Dry'] & humidity3['Dry'] &  # Adjust humidity conditions as needed
-                temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range'],  # Adjust temperature conditions as needed
-                leak_severity['Normal Operation'])
-
-# New Rules
+R20 = ctrl.Rule(
+    ((temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range']) |
+     (temperature1['Cold'] & temperature2['Normal range'] & temperature3['Normal range']) |
+     (temperature1['Normal range'] & temperature2['Cold'] & temperature3['Normal range']) |
+     (temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Cold'])) &
+    ((humidity1['Dry'] & humidity2['Dry'] & humidity3['Dry']) |
+     (~humidity1['wet'] & ~humidity2['wet'] & ~humidity3['wet'])) &
+    (~pressure1['high'] & ~pressure2['high'] & ~pressure3['high']),
+    leak_severity['Normal Operation']
+)
 
 # Rule for Leak Detection when two of pressure, humidity, or temperature are high
-R31 = ctrl.Rule(((pressure1['high'] & pressure2['high']) |
+R21 = ctrl.Rule(
+    ((pressure1['high'] & pressure2['high']) |
+     (pressure1['high'] & pressure3['high']) |
+     (pressure2['high'] & pressure3['high'])) &
+    ((humidity1['wet'] & humidity2['wet']) |
+     (humidity1['wet'] & humidity3['wet']) |
+     (humidity2['wet'] & humidity3['wet'])) &
+    ((temperature1['Hot'] & temperature2['Hot']) |
+     (temperature1['Hot'] & temperature3['Hot']) |
+     (temperature2['Hot'] & temperature3['Hot'])),
+    leak_severity['Leak Detected'])
+
+R22 = ctrl.Rule(pressure1['low'] & pressure2['medium'] & pressure3['high'], pressure['Locally High Pressure'])
+R23 = ctrl.Rule(pressure1['medium'] & pressure2['high'] & pressure3['low'], pressure['Locally High Pressure'])
+R24 = ctrl.Rule(pressure1['high'] & pressure2['low'] & pressure3['medium'], pressure['Locally High Pressure'])
+R25 = ctrl.Rule(pressure1['low'] & pressure2['low'] & pressure3['low'], pressure['Normal Range'])
+
+# New Humidity Rules
+R26 = ctrl.Rule(humidity1['wet'] & humidity2['Dry'] & humidity3['humid'], humidity['Room has High Humidity'])
+R27 = ctrl.Rule(humidity1['Dry'] & humidity2['wet'] & humidity3['Dry'], humidity['Moderate Humidity'])
+R28 = ctrl.Rule(humidity1['wet'] & humidity2['wet'] & humidity3['wet'], humidity['Room has High Humidity'])
+
+# New Temperature Rules
+R29 = ctrl.Rule(temperature1['Normal range'] & temperature2['Hot'] & temperature3['Normal range'], temperature['High Temperature Range'])
+R30 = ctrl.Rule(temperature1['Cold'] & temperature2['Cold'] & temperature3['Cold'], temperature['Freezing Temperature'])
+R31 = ctrl.Rule(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Cold'], temperature['Freezing Temperature'])
+
+# Rule for Leak Detection when two of pressure, humidity, or temperature are high
+R32 = ctrl.Rule(((pressure1['high'] & pressure2['high']) |
                 (pressure1['high'] & pressure3['high']) |
                 (pressure2['high'] & pressure3['high'])) &
                 ((humidity1['wet'] & humidity2['wet']) |
@@ -143,80 +175,94 @@ R31 = ctrl.Rule(((pressure1['high'] & pressure2['high']) |
                 (temperature2['Hot'] & temperature3['Hot'])),
                 leak_severity['Leak Detected'],~pressure['Room High Pressure'],temperature['High Temperature Range'], humidity['Room has High Humidity']
                 )
-R32 = ctrl.Rule((~pressure1['high'] & ~pressure2['high'] & pressure3['low']) &  
+R33 = ctrl.Rule((~pressure1['high'] & ~pressure2['high'] & pressure3['low']) &  
               (  ~humidity1['wet'] & humidity2['humid'] &   ~humidity3['wet']) &
                ( temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range']),
                 leak_severity['Normal Operation'],temperature['Normal Temperature'],pressure['Locally High Pressure'], humidity['Moderate Humidity'])
 # Rule for Leak Detection when all three temperature inputs are hot and three humidity inputs are wet
-R33 = ctrl.Rule(
+R34 = ctrl.Rule(
     (temperature1['Hot'] & temperature2['Hot'] & temperature3['Hot']) &
     (humidity1['wet'] & humidity2['wet'] & humidity3['wet']),
     leak_severity['Leak Detected'])
-R34 = ctrl.Rule( humidity1['wet']& humidity2['wet']& humidity3['wet'], humidity['Room has High Humidity'])
+R35 = ctrl.Rule( humidity1['wet']& humidity2['wet']& humidity3['wet'], humidity['Room has High Humidity'])
 # Rule for Please Investigate when pressure is locally high, temperature is freezing, and humidity is moderate
-R35 = ctrl.Rule(
+R36 = ctrl.Rule(
     (pressure1['medium'] & pressure2['medium'] & pressure3['medium']) &
     (temperature1['Cold'] & temperature2['Cold'] & temperature3['Cold']) &
     (humidity1['humid'] & humidity2['humid'] & humidity3['humid']),
     leak_severity['Please Investigate']
 )
-R36 = ctrl.Rule(
-    pressure1['high'] & pressure2['high'] & pressure3['high'], pressure['Room High Pressure']
+R37 = ctrl.Rule(
+    (pressure1['high'] & pressure2['high'] & pressure3['high'])&(humidity1['wet']&humidity2['wet']&humidity3['wet'])&(temperature1['Hot']&temperature2['Hot']&temperature3['Hot']), temperature['High Temperature Range'],pressure['Room High Pressure'],leak_severity['Leak Detected'],humidity['Room has High Humidity']
 )
 
-R37 = ctrl.Rule(pressure1['high'] & pressure2['high'] & pressure3['high'], pressure['Room High Pressure'])
+R38 = ctrl.Rule(pressure1['high'] & pressure2['high'] & pressure3['high'], pressure['Room High Pressure'])
 
 # Rule for high humidity
-R38 = ctrl.Rule(humidity1['wet'] & humidity2['wet'] & humidity3['wet'], humidity['Room has High Humidity'])
+R39 = ctrl.Rule(humidity1['wet'] & humidity2['wet'] & humidity3['wet'], humidity['Room has High Humidity'])
 
 # Rule for normal temperature
-R39 = ctrl.Rule(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range'], temperature['Normal Temperature'])
+R40 = ctrl.Rule(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range'], temperature['Normal Temperature'])
 # Rule for a specific scenario considering all antecedents
-R40 = ctrl.Rule(
+R41 = ctrl.Rule(
     pressure1['high'] & pressure2['high'] & pressure3['high'] &
     humidity1['wet'] & humidity2['wet'] & humidity3['wet'] &
     temperature1['Hot'] & temperature2['Hot'] & temperature3['Hot'],
-    leak_severity['Leak Detected']
-)
+    leak_severity['Leak Detected'])
+R41 = ctrl.Rule(pressure1['medium'] & pressure2['low'] & pressure3['medium'], pressure['Locally High Pressure'])
+R42 = ctrl.Rule(pressure1['medium'] & pressure2['medium'] & pressure3['low'], pressure['Locally High Pressure'])
+R43 = ctrl.Rule(pressure1['medium'] & pressure2['medium'] & pressure3['medium'], pressure['Room High Pressure'])
+R44 = ctrl.Rule(pressure1['high'] & pressure2['high'] & pressure3['medium'], pressure['Room High Pressure'])
+R45 = ctrl.Rule(pressure1['medium'] & pressure2['high'] & pressure3['high'], pressure['Room High Pressure'])
+R46 = ctrl.Rule(pressure1['low'] & pressure2['medium'] & pressure3['low'], pressure['Normal Range'])
+R47 = ctrl.Rule(pressure1['low'] & pressure2['low'] & pressure3['low'], pressure['Normal Range'])
 
-# Adding the new rule to the control system
+# New Humidity Rules
+R48 = ctrl.Rule(humidity1['wet'] & humidity2['Dry'] & humidity3['humid'], humidity['Room has High Humidity'])
+R49 = ctrl.Rule(humidity1['Dry'] & humidity2['wet'] & humidity3['Dry'], humidity['Moderate Humidity'])
+R50 = ctrl.Rule(humidity1['wet'] & humidity2['wet'] & humidity3['wet'], humidity['Room has High Humidity'])
+R51 = ctrl.Rule(humidity1['Dry'] & humidity2['Dry'] & humidity3['Dry'], humidity['Dry'])
+R52 = ctrl.Rule(humidity1['humid'] & humidity2['humid'] & humidity3['humid'], humidity['Moderate Humidity'])
+R53 = ctrl.Rule(humidity1['Dry'] & humidity2['Dry'] & humidity3['wet'], humidity['Moderate Humidity'])
+R54 = ctrl.Rule(humidity1['wet'] & humidity2['humid'] & humidity3['Dry'], humidity['Moderate Humidity'])
+R55 = ctrl.Rule(humidity1['wet'] & humidity2['wet'] & humidity3['Dry'], humidity['Moderate Humidity'])
 
-
-# Adding the new rule to the control system
-
-
-# ...
-
-
-# Adding all rules to the control system
-#add all rules
+# New Temperature Rules
+R56 = ctrl.Rule(temperature1['Normal range'] & temperature2['Hot'] & temperature3['Normal range'], temperature['High Temperature Range'])
+R57 = ctrl.Rule(temperature1['Cold'] & temperature2['Cold'] & temperature3['Cold'], temperature['Freezing Temperature'])
+R58 = ctrl.Rule(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Cold'], temperature['Freezing Temperature'])
+R59 = ctrl.Rule(temperature1['Hot'] & temperature2['Hot'] & temperature3['Hot'], temperature['High Temperature Range'])
+R60 = ctrl.Rule(temperature1['Hot'] | temperature2['Hot'] | temperature3['Hot'], temperature['High Temperature Range'])
+R61 = ctrl.Rule(temperature1['Normal range'] & temperature2['Normal range'] & temperature3['Normal range'], temperature['Normal Temperature'])
+R62 = ctrl.Rule(temperature1['Normal range'] & temperature2['Cold'] & temperature3['Normal range'], temperature['Freezing Temperature'])
+R63 = ctrl.Rule(temperature1['Hot'] & temperature2['Hot'] & temperature3['Cold'], temperature['High Temperature Range'])
+R64 = ctrl.Rule(temperature1['Normal range'] & temperature2['Cold'] & temperature3['Cold'], temperature['Freezing Temperature'])
+R65 = ctrl.Rule(temperature1['Cold'] & temperature2['Normal range'] & temperature3['Cold'], temperature['Freezing Temperature'])
 
 leak_detection_ctrl = ctrl.ControlSystem([
-    R1, R2, R3, R4,  R6, R7, R8, R9, R10, R11, R12, R13, R14, R15, R16,  R18, R19,R20,R21 , R31,R32, R33,R34,R35,R36,R37, R38, R39,R40
+    R1, R2, R3, R4,  R6, R7, R8, R9, R10, R11, R12, R13, R14, R15, R16,  R18, R19,R20,R21,R22, R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R35, R36, R37, R38, R39, R40,R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53, R54, R55, R56, R57, R58, R59, R60, R61, R62, R63, R64, R65
+
 ])
 
-# Replicating inputs that would be taken from sensors 
+
 leak_detection = ctrl.ControlSystemSimulation(leak_detection_ctrl)
 import random
+# Before computing the system
 
-# ... (your existing code)
-
-# Run the system until a leak is detected
-#random.uniform(0, 10)
-#random.uniform(0, 100)
 x= random.uniform(0, 10)
 print(x)
-    # Set random input values within the range
-leak_detection.input['Pressure Along conduit position 1'] = x
+leak_detection.input['Pressure Along conduit position 1'] =x
+
 x= random.uniform(0, 10)
 print(x)
 leak_detection.input['Pressure Along conduit position 2'] = x
+
 x= random.uniform(0, 10)
 print(x)
 leak_detection.input['Pressure Along conduit position 3'] = x
 x= random.uniform(0, 100)
 print(x)
-leak_detection.input['Relative Humidity CRAH 1'] =x
+leak_detection.input['Relative Humidity CRAH 1'] = x
 x= random.uniform(0, 100)
 print(x)
 leak_detection.input['Relative Humidity CRAH 6'] = x
@@ -226,6 +272,7 @@ leak_detection.input['Relative humidity CRAH 8'] = x
 x= random.uniform(0, 100)
 print(x)
 leak_detection.input['Temperature 1 in data Center '] = x
+
 x= random.uniform(0, 100)
 print(x)
 leak_detection.input['Temperature 2 in data Center'] = x
@@ -233,12 +280,14 @@ x= random.uniform(0, 100)
 print(x)
 leak_detection.input['Temperature 3 in data hall'] = x
 
+
+
+
+
     # Compute the system
 leak_detection.compute()
 
-    # Print the results
 print("Leak Severity:", leak_detection.output['Leak Severity'],"Temp" ,leak_detection.output['Overall temperature rating'],"Humidity " ,leak_detection.output['Overall Humidity Reading'], "pressure", leak_detection.output['Overall pressure reading'])
-
 
 # Visualization 
 pressure.view(sim=leak_detection)
